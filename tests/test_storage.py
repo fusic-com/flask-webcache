@@ -2,7 +2,7 @@ import unittest
 from datetime import timedelta, datetime
 from cPickle import dumps, loads
 
-from flask import Flask
+from flask import Flask, send_file
 from werkzeug.wrappers import Response
 from werkzeug.datastructures import HeaderSet
 from werkzeug.contrib.cache import SimpleCache
@@ -201,3 +201,12 @@ class StorageTestCase(unittest.TestCase):
                 r.verify_response_freshness_or_miss(resp)
             except CacheMiss:
                 self.fail('unexpected CacheMiss when ignoring request cache control')
+
+    def test_sequence_converted_responses(self):
+        with a.test_request_context('/foo'):
+            r = Response(f for f in 'foo')
+            r.make_sequence()
+            self.assertFalse(self.s.should_cache_response(r))
+            r = send_file(__file__)
+            r.make_sequence()
+            self.assertFalse(self.s.should_cache_response(r))

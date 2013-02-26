@@ -115,6 +115,7 @@ class Store(Base):
     def should_cache_response(self, response):
         if (response.is_streamed or        # theoretically possible
                                            #  but not implemented
+            response._on_close or          # _on_close hooks are often unpickleable
             request.method != 'GET' or     # no body to cache with HEAD
             response.status_code != OK or  # see 13.8
             '*' in response.vary):         # see 14.44
