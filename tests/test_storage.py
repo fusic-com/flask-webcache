@@ -8,6 +8,7 @@ from werkzeug.datastructures import HeaderSet
 from werkzeug.contrib.cache import SimpleCache
 from flask_webcache.storage import Config, Metadata, Store, Retrieval, CacheMiss
 
+from testutils import compare_numbers 
 a = Flask(__name__)
 
 class UtilsTestCase(unittest.TestCase):
@@ -52,6 +53,7 @@ class StorageTestCase(unittest.TestCase):
             return self.s.should_cache_response(r)
         with a.test_request_context():
             self.assertTrue(check_response_with_cache_control(max_age=10))
+            self.assertTrue(check_response_with_cache_control(must_revalidate=True))
             self.assertFalse(check_response_with_cache_control(max_age=0))
             self.assertFalse(check_response_with_cache_control(private=True))
             self.assertFalse(check_response_with_cache_control(no_cache=True))
@@ -139,3 +141,63 @@ class StorageTestCase(unittest.TestCase):
             self.r.config.master_salt = 'newsalt'
             with self.assertRaises(CacheMiss):
                 self.r.fetch_response()
+
+    def test_request_cache_controls(self):
+        with a.test_request_context('/foo'):
+            self.assertTrue(self.r.should_fetch_response())
+        with a.test_request_context('/foo', method='POST'):
+            self.assertFalse(self.r.should_fetch_response())
+        with a.test_request_context('/foo', headers=(('cache-control', 'no-cache'),)):
+            self.assertFalse(self.r.should_fetch_response())
+        with a.test_request_context('/foo', headers=(('pragma', 'no-cache'),)):
+            self.assertFalse(self.r.should_fetch_response())
+        with a.test_request_context('/foo', headers=(('cache-control', 'max-age=0'),)):
+            self.assertFalse(self.r.should_fetch_response())
+        with a.test_request_context('/foo', headers=(('cache-control', 'max-age=5'),)):
+            self.assertTrue(self.r.should_fetch_response())
+
+    def test_response_freshness_seconds(self):
+        # this test is raced; if running it takes about a second, it might fail
+        r = Response()
+        self.assertEquals(0, self.r.response_freshness_seconds(r))
+        r.date = datetime.now()
+        self.assertTrue(compare_numbers(self.s.DEFAULT_EXPIRATION_SECONDS,
+                                        self.r.response_freshness_seconds(r),
+                                        1))
+        r.expires = datetime.now() + timedelta(seconds=345)
+        self.assertTrue(compare_numbers(345, self.r.response_freshness_seconds(r), 1))
+        r.cache_control.max_age=789
+        self.assertTrue(compare_numbers(789, self.r.response_freshness_seconds(r), 1))
+
+    def test_min_fresh(self):
+        # this test is raced; if running it takes about a second, it might fail
+        r = Response()
+        r.date = datetime.now() - timedelta(seconds=100)
+        r.cache_control.max_age = 200
+        with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=50'),)):
+            try:
+                self.r.verify_response_freshness_or_miss(r)
+            except CacheMiss:
+                self.fail('unexpected CacheMiss on reasonably fresh response')
+        with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=150'),)):
+            self.assertRaises(CacheMiss, self.r.verify_response_freshness_or_miss, r)
+
+    def test_request_cache_control_disobedience(self):
+        c = SimpleCache()
+        cfg = Config(request_controls_cache=False)
+        s = Store(c, cfg)
+        r = Retrieval(c, cfg)
+        with a.test_request_context('/foo', headers=(('cache-control', 'no-store'),)):
+            self.assertTrue(r.should_fetch_response())
+        with a.test_request_context('/foo', headers=(('cache-control', 'no-store'),)):
+            self.assertTrue(s.should_cache_response(Response()))
+        with a.test_request_context('/foo', headers=(('cache-control', 'no-store'),)):
+            self.assertTrue(s.should_cache_response(Response()))
+        resp = Response()
+        resp.date = datetime.now() - timedelta(seconds=100)
+        resp.cache_control.max_age = 200
+        with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=150'),)):
+            try:
+                r.verify_response_freshness_or_miss(resp)
+            except CacheMiss:
+                self.fail('unexpected CacheMiss when ignoring request cache control')

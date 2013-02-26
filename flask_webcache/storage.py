@@ -5,18 +5,17 @@ import hashlib
 from flask import request, g
 from werkzeug.datastructures import parse_set_header
 
-from .utils import make_salt
+from .utils import make_salt, effective_max_age, none_or_truthy
 
 class CacheMiss(Exception):
     pass
 
 class Config(object):
-    def __init__(self, **kwargs):
-        self.resource_exemptions = set(kwargs.pop('resource_exemptions', ()))
-        self.master_salt = kwargs.pop('master_salt', '')
-        if kwargs:
-            raise TypeError("%s got an unexpected keyword argument %r"
-                            % (self.__class__.__name__, kwargs.popitem()[0]))
+    def __init__(self, resource_exemptions=(), master_salt='',
+                 request_controls_cache=True):
+        self.resource_exemptions = resource_exemptions
+        self.master_salt = master_salt
+        self.request_controls_cache = request_controls_cache
 
 class Metadata(object):
     def __init__(self, vary, salt):
@@ -31,6 +30,7 @@ class Metadata(object):
 class Base(object):
     X_CACHE_HEADER = 'X-Cache'
     CACHE_SEPARATOR = ':'
+    DEFAULT_EXPIRATION_SECONDS = 300
     def __init__(self, cache, config=None):
         self.cache = cache
         self.config = config or Config()
@@ -62,6 +62,19 @@ class Base(object):
         return False
 
 class Retrieval(Base):
+    def should_fetch_response(self):
+        if request.method != 'GET':
+            return False
+        if self.config.request_controls_cache:
+            return (
+                'no-cache' not in request.cache_control and
+                'no-cache' not in request.pragma and
+                none_or_truthy(request.cache_control.max_age)
+            )
+        # NOTES: "max-stale" is irrelevant; we expire stale representations
+        #        "no-transform" is irrelevant; we never transform
+        #        we are explicitly allowed to ignore "only-if-cached" (14.9.4)
+        return True
     def fetch_metadata(self):
         key = self.metadata_cache_key()
         return self.get_or_miss(key, 'no resource metadata')
@@ -70,11 +83,35 @@ class Retrieval(Base):
         g.cache_metadata = metadata
         key = self.response_cache_key(metadata)
         response = self.get_or_miss(key, 'no matching representation')
+        self.verify_response_freshness_or_miss(response)
         g.cached_response = True
         return response
-
+    def response_freshness_seconds(self, response):
+        now = datetime.now() # freeze time for identical comparisons
+        if response.date:
+            age = (now - response.date).total_seconds()
+        else:
+            age = None
+        if 'max-age' in response.cache_control and age:
+            rv = response.cache_control.max_age - age
+        elif response.expires:
+            rv = (response.expires - now).total_seconds()
+        elif age:
+            rv = self.DEFAULT_EXPIRATION_SECONDS - age
+        else:
+            rv = 0 # should never happen for cached responses
+        return max(0, rv)
+    def verify_response_freshness_or_miss(self, response):
+        if not self.config.request_controls_cache:
+            return
+        if 'min-fresh' not in request.cache_control:
+            return
+        freshness = self.response_freshness_seconds(response)
+        if freshness >= request.cache_control.min_fresh:
+            return
+        raise CacheMiss('response not fresh enough for client')
+        
 class Store(Base):
-    DEFAULT_EXPIRATION_SECONDS = 300
     def should_cache_response(self, response):
         if (response.is_streamed or        # theoretically possible
                                            #  but not implemented
@@ -82,13 +119,17 @@ class Store(Base):
             response.status_code != OK or  # see 13.8
             '*' in response.vary):         # see 14.44
             return False
+        if (self.config.request_controls_cache and
+            'no-store' in request.cache_control):
+            return False
         if 'cache-control' in response.headers: # see 14.9.1
             return (
                 'private' not in response.cache_control and
                 'no-cache' not in response.cache_control and
-                'no-store' not in request.cache_control and
-                response.cache_control.max_age
+                'no-store' not in response.cache_control and
+                none_or_truthy(effective_max_age(response))
             )
+            # FIXME: we ignore field-specific "private" and "no-cache" :(
         if 'expires' in response.headers: # see 14.21
             return response.expires > datetime.now()
         if request.args:
@@ -98,7 +139,7 @@ class Store(Base):
         if response.cache_control.max_age is not None:
             return response.cache_control.max_age
         if response.expires:
-            return (response.expires - datetime.now()).total_seconds
+            return (response.expires - datetime.now()).total_seconds()
         return self.DEFAULT_EXPIRATION_SECONDS
     def get_or_create_metadata(self, response, expiry_seconds):
         try:

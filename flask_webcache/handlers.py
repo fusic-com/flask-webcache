@@ -12,10 +12,9 @@ class RequestHandler(storage.Retrieval):
     def before_request(self):
         modifiers.setup_for_this_request()
         g.cached_response = False
-        if self.is_exempt():
-            return
         try:
-            return self.fetch_response()
+            if self.should_fetch_response() and not self.is_exempt():
+                return self.fetch_response()
         except storage.CacheMiss:
             pass
 
@@ -29,8 +28,7 @@ class ResponseHandler(validation.Validation, storage.Store):
     def after_request(self, response):
         if g.cached_response:
             return response
-        if 'last-modified' not in response.headers:
-            self.update_last_modified(response)
+        self.add_date_fields(response)
         for modifier in modifiers.after_request:
             modifier(response)
         if self.can_set_etag(response):

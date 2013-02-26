@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from httplib import NOT_IMPLEMENTED, NOT_MODIFIED, OK
 import hashlib
 
@@ -32,6 +33,9 @@ class Validation(object):
             return
         response.data = ''
         response.status_code = NOT_MODIFIED
-    def update_last_modified(self, response):
-        response.last_modified = datetime.now()
-
+    def add_date_fields(self, response):
+        now = datetime.now() # freeze time for identical dates
+        if 'last-modified' not in response.headers:
+            response.last_modified = now
+        if 'date' not in response.headers:
+            response.date = now

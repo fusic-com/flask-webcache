@@ -41,6 +41,7 @@ You can pass a `flask.ext.webcache.storage.Config` object to the handlers to cha
 
 * `resource_exemptions`: a set of URL prefixes for which no cache-storage will occur. If you're serving static files with Flask, you almost definitely want to pass your static URLs here.
 * `master_salt`: a serialized version of `flask.ext.webcache.storage.Metadata` is stored for every cached resource (if a single resource has more than one cached representation, just one metadata object is stored). This metadata contains the [selecting request-headers](http://tools.ietf.org/html/rfc2616#section-13.6) for that resource and a "salt". The salt is just a bit of randomness mixed into the keys in the cache namespace, making resource invalidation easy (just change the salt of the resource). The 'master salt' is another bit of randomness mixed into *every* resource, making *complete* cache invalidation easy - just change the master salt. By default, the master salt is regenerated every time the code is loaded when in debug mode - so if you're using the debug reloader, your cache is effectively flushed when you change your code. When debug is off, the master salt is fixed to an empty string and has no substantial use.
+* `request_controls_cache`: when this flag is False, request caching headers will be ignored (non-compliant!).
 
 ## What's HTTP based caching?
 
