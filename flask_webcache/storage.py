@@ -80,11 +80,11 @@ class Retrieval(Base):
         return self.get_or_miss(key, 'no resource metadata')
     def fetch_response(self):
         metadata = self.fetch_metadata()
-        g.cache_metadata = metadata
+        g.webcache_cache_metadata = metadata
         key = self.response_cache_key(metadata)
         response = self.get_or_miss(key, 'no matching representation')
         self.verify_response_freshness_or_miss(response)
-        g.cached_response = True
+        g.webcache_cached_response = True
         return response
     def response_freshness_seconds(self, response):
         now = datetime.utcnow() # freeze time for identical comparisons
@@ -144,7 +144,7 @@ class Store(Base):
         return self.DEFAULT_EXPIRATION_SECONDS
     def get_or_create_metadata(self, response, expiry_seconds):
         try:
-            metadata = g.cache_metadata
+            metadata = g.webcache_cache_metadata
             # TODO: warn when metadata.vary != response.vary
         except AttributeError:
             metadata = Metadata(response.vary, make_salt())

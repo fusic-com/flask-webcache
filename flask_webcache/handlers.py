@@ -11,7 +11,7 @@ class RequestHandler(storage.Retrieval):
         app.before_request(self.before_request)
     def before_request(self):
         modifiers.setup_for_this_request()
-        g.cached_response = False
+        g.webcache_cached_response = False
         try:
             if self.should_fetch_response() and not self.is_exempt():
                 return self.fetch_response()
@@ -26,7 +26,7 @@ class ResponseHandler(validation.Validation, storage.Store):
     def init_app(self, app):
         app.after_request(self.after_request)
     def after_request(self, response):
-        if g.cached_response:
+        if g.webcache_cached_response:
             return response
         self.add_date_fields(response)
         for modifier in modifiers.after_request:
