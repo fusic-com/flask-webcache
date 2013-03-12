@@ -34,7 +34,7 @@ class Validation(object):
         response.data = ''
         response.status_code = NOT_MODIFIED
     def add_date_fields(self, response):
-        now = datetime.now() # freeze time for identical dates
+        now = datetime.utcnow() # freeze time for identical dates
         if 'last-modified' not in response.headers:
             response.last_modified = now
         if 'date' not in response.headers:

@@ -65,8 +65,8 @@ class StorageTestCase(unittest.TestCase):
             r.expires = dt
             return self.s.should_cache_response(r)
         with a.test_request_context():
-            self.assertFalse(check_response_with_expires(datetime.now() - timedelta(seconds=1)))
-            self.assertTrue(check_response_with_expires(datetime.now() + timedelta(seconds=1)))
+            self.assertFalse(check_response_with_expires(datetime.utcnow() - timedelta(seconds=1)))
+            self.assertTrue(check_response_with_expires(datetime.utcnow() + timedelta(seconds=1)))
 
     def test_default_cachability(self):
         with a.test_request_context('/foo'):
@@ -160,11 +160,11 @@ class StorageTestCase(unittest.TestCase):
         # this test is raced; if running it takes about a second, it might fail
         r = Response()
         self.assertEquals(0, self.r.response_freshness_seconds(r))
-        r.date = datetime.now()
+        r.date = datetime.utcnow()
         self.assertTrue(compare_numbers(self.s.DEFAULT_EXPIRATION_SECONDS,
                                         self.r.response_freshness_seconds(r),
                                         1))
-        r.expires = datetime.now() + timedelta(seconds=345)
+        r.expires = datetime.utcnow() + timedelta(seconds=345)
         self.assertTrue(compare_numbers(345, self.r.response_freshness_seconds(r), 1))
         r.cache_control.max_age=789
         self.assertTrue(compare_numbers(789, self.r.response_freshness_seconds(r), 1))
@@ -172,7 +172,7 @@ class StorageTestCase(unittest.TestCase):
     def test_min_fresh(self):
         # this test is raced; if running it takes about a second, it might fail
         r = Response()
-        r.date = datetime.now() - timedelta(seconds=100)
+        r.date = datetime.utcnow() - timedelta(seconds=100)
         r.cache_control.max_age = 200
         with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=50'),)):
             try:
@@ -194,7 +194,7 @@ class StorageTestCase(unittest.TestCase):
         with a.test_request_context('/foo', headers=(('cache-control', 'no-store'),)):
             self.assertTrue(s.should_cache_response(Response()))
         resp = Response()
-        resp.date = datetime.now() - timedelta(seconds=100)
+        resp.date = datetime.utcnow() - timedelta(seconds=100)
         resp.cache_control.max_age = 200
         with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=150'),)):
             try:

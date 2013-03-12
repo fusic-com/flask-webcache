@@ -87,7 +87,7 @@ class Retrieval(Base):
         g.cached_response = True
         return response
     def response_freshness_seconds(self, response):
-        now = datetime.now() # freeze time for identical comparisons
+        now = datetime.utcnow() # freeze time for identical comparisons
         if response.date:
             age = (now - response.date).total_seconds()
         else:
@@ -132,7 +132,7 @@ class Store(Base):
             )
             # FIXME: we ignore field-specific "private" and "no-cache" :(
         if 'expires' in response.headers: # see 14.21
-            return response.expires > datetime.now()
+            return response.expires > datetime.utcnow()
         if request.args:
             return False # see 13.9
         return True
@@ -140,7 +140,7 @@ class Store(Base):
         if response.cache_control.max_age is not None:
             return response.cache_control.max_age
         if response.expires:
-            return (response.expires - datetime.now()).total_seconds()
+            return (response.expires - datetime.utcnow()).total_seconds()
         return self.DEFAULT_EXPIRATION_SECONDS
     def get_or_create_metadata(self, response, expiry_seconds):
         try:

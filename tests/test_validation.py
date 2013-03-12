@@ -55,8 +55,8 @@ class ValidationTestCase(unittest.TestCase):
     def test_date_addition(self):
         r = Response()
         v.add_date_fields(r)
-        self.assertTrue(compare_datetimes(r.last_modified, datetime.now()))
-        self.assertTrue(compare_datetimes(r.date, datetime.now()))
+        self.assertTrue(compare_datetimes(r.last_modified, datetime.utcnow()))
+        self.assertTrue(compare_datetimes(r.date, datetime.utcnow()))
         self.assertEquals(r.last_modified, r.date)
 
     def test_date_no_clobber(self):

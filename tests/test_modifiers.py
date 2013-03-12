@@ -12,7 +12,7 @@ class ModifiersTestCase(unittest.TestCase):
         m = cache_for(minutes=5)
         r = Response()
         m.modify_response(r)
-        self.assertTrue(compare_datetimes(r.expires, datetime.now() + timedelta(minutes=5)))
+        self.assertTrue(compare_datetimes(r.expires, datetime.utcnow() + timedelta(minutes=5)))
 
     def test_two_cache_fors(self):
         m1 = cache_for(minutes=5)
@@ -20,7 +20,7 @@ class ModifiersTestCase(unittest.TestCase):
         r = Response()
         m1.modify_response(r)
         m2.modify_response(r)
-        self.assertTrue(compare_datetimes(r.expires, datetime.now() + timedelta(minutes=3)))
+        self.assertTrue(compare_datetimes(r.expires, datetime.utcnow() + timedelta(minutes=3)))
 
     def test_cache_control(self):
         m = cache_control(public=True)

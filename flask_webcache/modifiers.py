@@ -30,7 +30,7 @@ class cache_for(BaseModifier):
     def modify_response(self, response):
         delta = timedelta(**self.durations)
         response.cache_control.max_age = int(delta.total_seconds())
-        response.expires = datetime.now() + delta
+        response.expires = datetime.utcnow() + delta
 
 class cache_control(BaseModifier):
     "Modifier that sets arbitrary Cache-Control directives"
