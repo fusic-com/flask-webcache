@@ -8,7 +8,7 @@ from setuptools import setup
 
 setup(
     name='Flask-WebCache',
-    version='0.4',
+    version='0.5',
     url='http://github.com/fusic-com/flask-webcache/',
     license='BSD',
     author='Yaniv Aknin',
