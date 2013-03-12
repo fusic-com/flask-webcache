@@ -3,7 +3,7 @@ from datetime import datetime
 from httplib import NOT_IMPLEMENTED, NOT_MODIFIED, OK
 import hashlib
 
-from flask import request
+from flask import request, g
 
 class Validation(object):
     def can_set_etag(self, response):
@@ -29,7 +29,8 @@ class Validation(object):
             #        abort() with 412 PRECONDITION_FAILED.
             #       Not sure what to do, I'm opting to return the 5xx status
             #        501 NOT_IMPLEMENTED. Meh.
-            response.status_code = NOT_IMPLEMENTED
+            if not hasattr(g, 'webcache_ignore_if_none_match'):
+                response.status_code = NOT_IMPLEMENTED
             return
         response.data = ''
         response.status_code = NOT_MODIFIED
