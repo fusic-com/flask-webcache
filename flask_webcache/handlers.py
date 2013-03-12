@@ -26,8 +26,6 @@ class ResponseHandler(validation.Validation, storage.Store):
     def init_app(self, app):
         app.after_request(self.after_request)
     def after_request(self, response):
-        if g.webcache_cached_response:
-            return response
         self.add_date_fields(response)
         for modifier in modifiers.after_request:
             modifier(response)
@@ -35,6 +33,8 @@ class ResponseHandler(validation.Validation, storage.Store):
             self.set_etag(response)
         if self.if_none_match(response):
             return self.return_not_modified_response(response) or response
+        if g.webcache_cached_response:
+            return response
         if self.should_cache_response(response) and not self.is_exempt():
             self.cache_response(response)
             self.mark_cache_miss(response)
