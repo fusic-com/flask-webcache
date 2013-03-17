@@ -6,7 +6,10 @@ from flask import Flask, send_file
 from werkzeug.wrappers import Response
 from werkzeug.datastructures import HeaderSet
 from werkzeug.contrib.cache import SimpleCache
-from flask_webcache.storage import Config, Metadata, Store, Retrieval, CacheMiss
+from flask_webcache.storage import Config, Metadata, Store, Retrieval
+from flask_webcache.storage import (CacheMiss, NoResourceMetadata, NoMatchingRepresentation, NotFreshEnoughForClient,
+                                    RecacheRequested)
+from flask_webcache.recache import RECACHE_HEADER
 
 from testutils import compare_numbers 
 a = Flask(__name__)
@@ -82,12 +85,12 @@ class StorageTestCase(unittest.TestCase):
         self.assertEquals(r.headers[self.s.X_CACHE_HEADER], 'miss')
 
     def test_metadata_miss(self):
-        with self.assertRaises(CacheMiss):
+        with self.assertRaises(NoResourceMetadata):
             with a.test_request_context('/foo'):
                 self.r.fetch_metadata()
 
     def test_response_miss(self):
-        with self.assertRaises(CacheMiss):
+        with self.assertRaises(NoResourceMetadata):
             with a.test_request_context('/foo'):
                 self.r.fetch_response()
 
@@ -105,7 +108,7 @@ class StorageTestCase(unittest.TestCase):
             r.vary.add('accept-encoding')
             r.content_encoding = 'gzip'
             self.s.cache_response(r)
-        with self.assertRaises(CacheMiss):
+        with self.assertRaises(NoMatchingRepresentation):
             with a.test_request_context('/foo'):
                 self.r.fetch_response()
 
@@ -139,7 +142,7 @@ class StorageTestCase(unittest.TestCase):
             self.s.cache_response(r)
             self.assertEquals(self.r.fetch_response().data, 'foo')
             self.r.config.master_salt = 'newsalt'
-            with self.assertRaises(CacheMiss):
+            with self.assertRaises(NoMatchingRepresentation):
                 self.r.fetch_response()
 
     def test_request_cache_controls(self):
@@ -174,13 +177,14 @@ class StorageTestCase(unittest.TestCase):
         r = Response()
         r.date = datetime.utcnow() - timedelta(seconds=100)
         r.cache_control.max_age = 200
+        f = self.r.response_freshness_seconds(r)
         with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=50'),)):
             try:
-                self.r.verify_response_freshness_or_miss(r)
+                self.r.verify_response_freshness_or_miss(r, f)
             except CacheMiss:
                 self.fail('unexpected CacheMiss on reasonably fresh response')
         with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=150'),)):
-            self.assertRaises(CacheMiss, self.r.verify_response_freshness_or_miss, r)
+            self.assertRaises(NotFreshEnoughForClient, self.r.verify_response_freshness_or_miss, r, f)
 
     def test_request_cache_control_disobedience(self):
         c = SimpleCache()
@@ -197,8 +201,9 @@ class StorageTestCase(unittest.TestCase):
         resp.date = datetime.utcnow() - timedelta(seconds=100)
         resp.cache_control.max_age = 200
         with a.test_request_context('/foo', headers=(('cache-control', 'min-fresh=150'),)):
+            f = self.r.response_freshness_seconds(resp)
             try:
-                r.verify_response_freshness_or_miss(resp)
+                r.verify_response_freshness_or_miss(resp, f)
             except CacheMiss:
                 self.fail('unexpected CacheMiss when ignoring request cache control')
 
@@ -210,3 +215,43 @@ class StorageTestCase(unittest.TestCase):
             r = send_file(__file__)
             r.make_sequence()
             self.assertFalse(self.s.should_cache_response(r))
+
+class RecacheTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.recached = False
+        def dispatcher(salt):
+            self.recached = True
+        self.c = SimpleCache()
+        cfg = Config(preemptive_recache_seconds=10, preemptive_recache_callback=dispatcher)
+        self.s = Store(self.c, cfg)
+        self.r = Retrieval(self.c, cfg)
+
+    def test_preemptive_recaching_predicate(self):
+        m = Metadata(HeaderSet(('foo', 'bar')), 'qux')
+        def mkretr(**kwargs):
+            return Retrieval(self.c, Config(**kwargs))
+        with a.test_request_context('/'):
+            self.assertFalse(mkretr(preemptive_recache_seconds=10).should_recache_preemptively(10, m))
+            self.assertFalse(mkretr(preemptive_recache_callback=lambda x: 0).should_recache_preemptively(10, m))
+            self.assertFalse(self.r.should_recache_preemptively(11, m))
+            self.assertTrue(self.r.should_recache_preemptively(10, m))
+            self.assertFalse(self.r.should_recache_preemptively(10, m))
+            self.c.clear()
+            self.assertTrue(self.r.should_recache_preemptively(10, m))
+
+    def test_preemptive_recaching_cache_bypass(self):
+        fresh = Response('foo')
+        with a.test_request_context('/foo'):
+            self.s.cache_response(fresh)
+            metadata = self.r.fetch_metadata()
+        with a.test_request_context('/foo'):
+            cached = self.r.fetch_response()
+            self.assertEquals(cached.headers[self.r.X_CACHE_HEADER], 'hit')
+        with a.test_request_context('/foo', headers={RECACHE_HEADER: metadata.salt}):
+            self.assertRaises(RecacheRequested, self.r.fetch_response)
+        with a.test_request_context('/foo', headers={RECACHE_HEADER: 'incorrect-salt'}):
+            try:
+                self.r.fetch_response()
+            except RecacheRequested:
+                self.fail('unexpected RecacheRequested for incorrect salt')

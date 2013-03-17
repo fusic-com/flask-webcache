@@ -1,7 +1,7 @@
 from werkzeug.contrib.cache import SimpleCache
 
-from . import storage, validation, handlers, modifiers, utils
-modifiers, validation # silence pyflakes etc
+from . import storage, validation, handlers, modifiers, utils, recache
+modifiers, validation, recache # silence pyflakes etc
 
 def easy_setup(app, cache=None):
     cache = cache or SimpleCache()
