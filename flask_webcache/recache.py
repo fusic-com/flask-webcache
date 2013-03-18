@@ -15,7 +15,7 @@ def make_rq_dispatcher(queue=None, app_factory=None):
         queue = Queue()
     def dispatcher(salt):
         args = get_dispatch_args(app_factory, salt)
-        queue.enqueue_call(dispatch_request, args=args)
+        queue.enqueue_call(dispatch_request, args=args, result_ttl=0)
     return dispatcher
 
 def make_thread_dispatcher(app_factory=None):
