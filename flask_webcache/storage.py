@@ -74,7 +74,7 @@ class Base(object):
 
 class Retrieval(Base):
     def should_fetch_response(self):
-        if request.method != 'GET':
+        if request.method not in {'GET', 'HEAD'}:
             return False
         if self.config.request_controls_cache:
             return (
@@ -141,12 +141,11 @@ class Retrieval(Base):
 
 class Store(Base):
     def should_cache_response(self, response):
-        if (response.is_streamed or        # theoretically possible
-                                           #  but not implemented
-            response._on_close or          # _on_close hooks are often unpickleable
-            request.method != 'GET' or     # no body to cache with HEAD
-            response.status_code != OK or  # see 13.8
-            '*' in response.vary):         # see 14.44
+        if (response.is_streamed or # theoretically possible yet unimplemented
+            response._on_close or # _on_close hooks are often unpickleable
+            request.method != "GET" or # arbitrarily seems safer to me
+            str(response.status_code)[0] != '2' or # see 13.4 & 14.9.1
+            '*' in response.vary): # see 14.44
             return False
         if (self.config.request_controls_cache and
             'no-store' in request.cache_control):

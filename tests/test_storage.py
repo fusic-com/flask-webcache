@@ -39,12 +39,15 @@ class StorageTestCase(unittest.TestCase):
     def test_basic_cachability(self):
         with a.test_request_context('/foo'):
             self.assertFalse(self.s.should_cache_response(Response(x for x in 'foo')))
+            self.assertTrue(self.s.should_cache_response(Response(status=204)))
             self.assertFalse(self.s.should_cache_response(Response(status=500)))
             self.assertTrue(self.s.should_cache_response(Response('foo')))
             self.assertTrue(self.s.should_cache_response(Response()))
             r = Response()
             r.vary.add('*')
             self.assertFalse(self.s.should_cache_response(r))
+        with a.test_request_context('/foo', method='HEAD'):
+            self.assertFalse(self.s.should_cache_response(Response('foo')))
         with a.test_request_context('/foo', method='POST'):
             self.assertFalse(self.s.should_cache_response(Response('foo')))
 
@@ -147,6 +150,8 @@ class StorageTestCase(unittest.TestCase):
 
     def test_request_cache_controls(self):
         with a.test_request_context('/foo'):
+            self.assertTrue(self.r.should_fetch_response())
+        with a.test_request_context('/foo', method='HEAD'):
             self.assertTrue(self.r.should_fetch_response())
         with a.test_request_context('/foo', method='POST'):
             self.assertFalse(self.r.should_fetch_response())
