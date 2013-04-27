@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/fusic-com/flask-webcache.png)](https://travis-ci.org/fusic-com/flask-webcache)
 
 
-A Flask extension that adds HTTP based caching to Flask apps. This extension aims for relatively strict\* and complete rfc2616 implementation, albeit at its present alpha stage it is far from it. That said, deviation from the standard, in code or even terminology, should be considered a bug and can be filed as such (see *Contribution*, below). For the purposes of flask-webcache related documentation (including and especially this document), a webcache means rfc2616 based and compliant caching. If you're not sure what HTTP based caching means, see *What's HTTP based caching*, below; it also explains how this package differs from many other caching related Flask extensions.
+A Flask extension that adds HTTP based caching to Flask apps. This extension aims for relatively strict\* and complete rfc2616 implementation. That said, deviation from the standard, in code or even terminology, should be considered a bug and can be filed as such (see *Contribution*, below). For the purposes of flask-webcache related documentation (including and especially this document), a webcache means rfc2616 based and compliant caching. If you're not sure what HTTP based caching means, see *What's HTTP based caching*, below; it also explains how this package differs from many other caching related Flask extensions.
 
 \* Although practicality beats purity.
 
