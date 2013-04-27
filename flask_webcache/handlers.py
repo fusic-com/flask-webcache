@@ -2,6 +2,11 @@ from flask import g
 
 from . import storage, validation, modifiers
 
+def register_extension(app, name, obj):
+    if not hasattr(app, 'extensions'):
+        app.extensions = {}
+    app.extensions.setdefault('webcache', {})[name] = obj
+
 class RequestHandler(storage.Retrieval):
     def __init__(self, cache, app=None, config=None):
         super(RequestHandler, self).__init__(cache, config)
@@ -9,6 +14,7 @@ class RequestHandler(storage.Retrieval):
             self.init_app(app)
     def init_app(self, app):
         app.before_request(self.before_request)
+        register_extension(app, 'request', self)
     def before_request(self):
         modifiers.setup_for_this_request()
         g.webcache_cached_response = False
@@ -25,6 +31,7 @@ class ResponseHandler(validation.Validation, storage.Store):
             self.init_app(app)
     def init_app(self, app):
         app.after_request(self.after_request)
+        register_extension(app, 'response', self)
     def after_request(self, response):
         self.add_date_fields(response)
         for modifier in modifiers.after_request:
