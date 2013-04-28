@@ -13,6 +13,7 @@ class NoResourceMetadata(CacheMiss): pass
 class NoMatchingRepresentation(CacheMiss): pass
 class NotFreshEnoughForClient(CacheMiss): pass
 class RecacheRequested(CacheMiss): pass
+class LostMetadataRace(Exception): pass
 
 class Config(object):
     def __init__(self, resource_exemptions=(), master_salt='',
@@ -179,7 +180,10 @@ class Store(Base):
         return metadata
     def store_metadata(self, metadata, expiry_seconds):
         key = self.metadata_cache_key()
-        self.cache.set(key, metadata, expiry_seconds)
+        self.cache.add(key, metadata, expiry_seconds)
+        saved_metadata = self.cache.get(key)
+        if saved_metadata.salt != metadata.salt:
+            raise LostMetadataRace('someone else stored metadata for this resource before us')
         return metadata
     def store_response(self, metadata, response, expiry_seconds):
         key = self.response_cache_key(metadata)
@@ -187,7 +191,10 @@ class Store(Base):
         self.cache.set(key, response, expiry_seconds)
     def cache_response(self, response):
         expiry_seconds = self.response_expiry_seconds(response)
-        metadata = self.get_or_create_metadata(response, expiry_seconds)
+        try:
+            metadata = self.get_or_create_metadata(response, expiry_seconds)
+        except LostMetadataRace:
+            return
         self.mark_cache_hit(response)
         self.store_response(metadata, response, expiry_seconds)
         self.delete_recache_key(metadata)
