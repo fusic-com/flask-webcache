@@ -1,11 +1,11 @@
 from datetime import datetime
-from httplib import OK
 import hashlib
 
 from flask import request, g
 from werkzeug.datastructures import parse_set_header
 
-from .utils import make_salt, effective_max_age, none_or_truthy
+from .utils import (make_salt, effective_max_age, none_or_truthy,
+                    werkzeug_cache_get_or_add)
 from .recache import RECACHE_HEADER
 
 class CacheMiss(Exception): pass
@@ -13,7 +13,6 @@ class NoResourceMetadata(CacheMiss): pass
 class NoMatchingRepresentation(CacheMiss): pass
 class NotFreshEnoughForClient(CacheMiss): pass
 class RecacheRequested(CacheMiss): pass
-class LostMetadataRace(Exception): pass
 
 class Config(object):
     def __init__(self, resource_exemptions=(), master_salt='',
@@ -34,6 +33,11 @@ class Metadata(object):
     def __setstate__(self, s):
         self.salt, vary = s.split(':', 1)
         self.vary = parse_set_header(vary)
+    def __eq__(self, other):
+        try:
+            return self.vary.as_set() == other.vary.as_set() and self.salt == other.salt
+        except AttributeError:
+            return False
 
 class Base(object):
     X_CACHE_HEADER = 'X-Cache'
@@ -172,29 +176,20 @@ class Store(Base):
         return self.DEFAULT_EXPIRATION_SECONDS
     def get_or_create_metadata(self, response, expiry_seconds):
         try:
-            metadata = g.webcache_cache_metadata
-            # TODO: warn when metadata.vary != response.vary
+            return g.webcache_cache_metadata
         except AttributeError:
-            metadata = Metadata(response.vary, make_salt())
-            self.store_metadata(metadata, expiry_seconds)
-        return metadata
-    def store_metadata(self, metadata, expiry_seconds):
-        key = self.metadata_cache_key()
-        self.cache.add(key, metadata, expiry_seconds)
-        saved_metadata = self.cache.get(key)
-        if saved_metadata.salt != metadata.salt:
-            raise LostMetadataRace('someone else stored metadata for this resource before us')
-        return metadata
+            new = Metadata(response.vary, make_salt())
+            key = self.metadata_cache_key()
+            return werkzeug_cache_get_or_add(self.cache, key, new,
+                                             expiry_seconds)
     def store_response(self, metadata, response, expiry_seconds):
         key = self.response_cache_key(metadata)
         response.freeze()
         self.cache.set(key, response, expiry_seconds)
     def cache_response(self, response):
         expiry_seconds = self.response_expiry_seconds(response)
-        try:
-            metadata = self.get_or_create_metadata(response, expiry_seconds)
-        except LostMetadataRace:
-            return
+        metadata = self.get_or_create_metadata(response, expiry_seconds)
+        # TODO: warn when metadata.vary != response.vary?
         self.mark_cache_hit(response)
         self.store_response(metadata, response, expiry_seconds)
         self.delete_recache_key(metadata)

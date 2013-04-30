@@ -10,6 +10,7 @@ from flask_webcache.storage import Config, Metadata, Store, Retrieval
 from flask_webcache.storage import (CacheMiss, NoResourceMetadata, NoMatchingRepresentation, NotFreshEnoughForClient,
                                     RecacheRequested)
 from flask_webcache.recache import RECACHE_HEADER
+from flask_webcache.utils import werkzeug_cache_get_or_add
 
 from testutils import compare_numbers 
 a = Flask(__name__)
@@ -20,7 +21,7 @@ class UtilsTestCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             Config(foo=1)
 
-    def test_metadata(self):
+    def test_metadata_datastructure(self):
         def check_metadata(m):
             self.assertEquals(m.salt, 'qux')
             self.assertIn('foo', m.vary)
@@ -28,6 +29,10 @@ class UtilsTestCase(unittest.TestCase):
         m = Metadata(HeaderSet(('foo', 'bar')), 'qux')
         check_metadata(m)
         check_metadata(loads(dumps(m)))
+        m2 = Metadata(HeaderSet(('foo', 'bar')), 'qux')
+        self.assertEquals(m, m2)
+        m3 = Metadata(HeaderSet(('foo', 'bar')), 'notqux')
+        self.assertNotEquals(m2, m3)
 
 class StorageTestCase(unittest.TestCase):
 
@@ -260,3 +265,15 @@ class RecacheTestCase(unittest.TestCase):
                 self.r.fetch_response()
             except RecacheRequested:
                 self.fail('unexpected RecacheRequested for incorrect salt')
+
+class UtilityTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.c = SimpleCache()
+
+    def test_werkzeug_cache_get_or_add_missing_key(self):
+        self.assertEquals('bar', werkzeug_cache_get_or_add(self.c, 'foo', 'bar', 10))
+
+    def test_werkzeug_cache_get_or_add_existing_key(self):
+        self.c.set('foo', 'bar')
+        self.assertEquals('bar', werkzeug_cache_get_or_add(self.c, 'foo', 'qux', 10))

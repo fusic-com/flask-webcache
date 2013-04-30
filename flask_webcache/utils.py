@@ -14,3 +14,10 @@ def none_or_truthy(v):
     if v is None:
         return True
     return bool(v)
+
+def werkzeug_cache_get_or_add(cache, key, new_obj, expiry_seconds):
+    stored_obj = None
+    while stored_obj is None:
+        cache.add(key, new_obj, expiry_seconds)
+        stored_obj = cache.get(key)
+    return stored_obj
