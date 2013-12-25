@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+        <title>sleepycalc</title>
+        <style>body { padding: 30px; }</style>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+        <script type="text/javascript">
+            $(function() {
+                $("#message").hide();
+                $("input[type=submit]").click(function(ev) {
+                    ev.preventDefault();
+                    var terms = $("input[name=term1], input[name=term2]");
+                    $("input[name=result]").val("Calculating...");
+                    xhr = $.ajax("{{ url_for('addition') }}?" + terms.serialize());
+                    xhr.done(function(data) {
+                        $("input[name=result]").val(data);
+                    });
+                    xhr.fail(function() {
+                        $("input[name=result]").val("Err");
+                        alert("error: " + xhr.responseText);
+                    });
+                });
+            });
+        </script>
+    </head>
+    <body>
+        <h1>sleepycalc</h1>
+        <form action="{{ url_for('addition') }}">
+            <input name="term1"> +
+            <input name="term2"> =
+            <input name="result">
+            <input type=submit value=Calculate name=action>
+        </form>
+    </body>
+</html>
