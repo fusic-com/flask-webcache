@@ -1,6 +1,7 @@
+from __future__ import unicode_literals
 from datetime import datetime
 
-from httplib import NOT_IMPLEMENTED, NOT_MODIFIED, OK
+from six.moves.http_client import NOT_IMPLEMENTED, NOT_MODIFIED, OK
 import hashlib
 
 from flask import request, g

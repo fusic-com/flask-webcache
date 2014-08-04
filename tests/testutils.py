@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from datetime import timedelta
 
 def compare_datetimes(this, other, max_seconds_difference=1):

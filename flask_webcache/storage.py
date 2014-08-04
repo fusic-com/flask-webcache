@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from datetime import datetime
 import hashlib
 
@@ -48,16 +49,16 @@ class Base(object):
         self.config = config or Config()
     def request_path_and_query(self):
         if request.query_string:
-            return '?'.join((request.path, request.query_string))
+            return '?'.join((request.path, request.query_string.decode('utf-8')))
         return request.path
     def make_key(self, *bits):
         return self.CACHE_SEPARATOR.join(bits)
     def make_response_key(self, namespace, metadata):
         ctx = hashlib.md5()
         for header in metadata.vary:
-            ctx.update(header + request.headers.get(header, ''))
-        ctx.update(metadata.salt)
-        ctx.update(self.config.master_salt)
+            ctx.update((header + request.headers.get(header, '')).encode('utf-8'))
+        ctx.update(metadata.salt.encode('utf-8'))
+        ctx.update(self.config.master_salt.encode('utf-8'))
         return self.make_key(namespace, ctx.hexdigest(),
                              self.request_path_and_query())
     def metadata_cache_key(self):

@@ -48,7 +48,8 @@ vs. after the extension:
 
     1000
 """
-from httplib import BAD_REQUEST, OK
+from __future__ import division, unicode_literals
+from six.moves.http_client import BAD_REQUEST, OK
 from time import sleep
 
 from werkzeug.contrib.cache import FileSystemCache

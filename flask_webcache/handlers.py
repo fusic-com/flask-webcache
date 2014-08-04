@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from flask import g
 
 from . import storage, validation, modifiers

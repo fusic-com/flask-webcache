@@ -1,5 +1,6 @@
+from __future__ import unicode_literals
 import unittest
-from httplib import NOT_MODIFIED
+from six.moves.http_client import NOT_MODIFIED
 
 from flask import Flask
 from flask_webcache import easy_setup
