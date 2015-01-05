@@ -1,5 +1,7 @@
+from __future__ import unicode_literals
 from datetime import timedelta, datetime
 from functools import wraps
+from six import iteritems
 
 from flask import _request_ctx_stack
 from werkzeug.datastructures import ResponseCacheControl
@@ -35,11 +37,11 @@ class cache_for(BaseModifier):
 class cache_control(BaseModifier):
     "Modifier that sets arbitrary Cache-Control directives"
     def __init__(self, **kwargs):
-        for key, value in kwargs.iteritems():
+        for key, value in iteritems(kwargs):
             if not hasattr(ResponseCacheControl, key):
                 raise TypeError('%s got an unexpected keyword argument %r'
                                 % (self.__class__.__name__, key))
         self.kwargs = kwargs
     def modify_response(self, response):
-        for key, value in self.kwargs.iteritems():
+        for key, value in iteritems(self.kwargs):
             setattr(response.cache_control, key, value)

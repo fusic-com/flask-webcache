@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from flask import request, current_app
 from werkzeug.http import Headers
 

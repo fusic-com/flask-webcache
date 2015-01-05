@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from datetime import datetime
 import unittest
 
@@ -8,7 +9,7 @@ from flask_webcache.validation import Validation
 a = Flask(__name__)
 v = Validation()
 
-from testutils import compare_datetimes 
+from testutils import compare_datetimes
 
 class ValidationTestCase(unittest.TestCase):
 
@@ -42,14 +43,14 @@ class ValidationTestCase(unittest.TestCase):
         r = Response('foo')
         with a.test_request_context():
             v.return_not_modified_response(r)
-        self.assertEquals(r.data, '')
+        self.assertEquals(r.data, b'')
         self.assertEquals(r.status_code, 304)
 
     def test_not_modified_failure(self):
         r = Response('foo')
         with a.test_request_context(method='PUT'):
             v.return_not_modified_response(r)
-        self.assertEquals(r.data, 'foo')
+        self.assertEquals(r.data, b'foo')
         self.assertEquals(r.status_code, 501)
 
     def test_date_addition(self):

@@ -1,6 +1,8 @@
+from __future__ import unicode_literals
 import unittest
 from datetime import timedelta, datetime
-from cPickle import dumps, loads
+from six.moves.cPickle import dumps, loads
+from six import iteritems
 
 from flask import Flask, send_file
 from werkzeug.wrappers import Response
@@ -12,7 +14,7 @@ from flask_webcache.storage import (CacheMiss, NoResourceMetadata, NoMatchingRep
 from flask_webcache.recache import RECACHE_HEADER
 from flask_webcache.utils import werkzeug_cache_get_or_add
 
-from testutils import compare_numbers 
+from testutils import compare_numbers
 a = Flask(__name__)
 
 class UtilsTestCase(unittest.TestCase):
@@ -59,7 +61,7 @@ class StorageTestCase(unittest.TestCase):
     def test_cache_control_cachability(self):
         def check_response_with_cache_control(**cc):
             r = Response()
-            for k, v in cc.iteritems():
+            for k, v in iteritems(cc):
                 setattr(r.cache_control, k, v)
             return self.s.should_cache_response(r)
         with a.test_request_context():
@@ -148,7 +150,7 @@ class StorageTestCase(unittest.TestCase):
         with a.test_request_context('/foo'):
             r = Response('foo')
             self.s.cache_response(r)
-            self.assertEquals(self.r.fetch_response().data, 'foo')
+            self.assertEquals(self.r.fetch_response().data, b'foo')
             self.r.config.master_salt = 'newsalt'
             with self.assertRaises(NoMatchingRepresentation):
                 self.r.fetch_response()
