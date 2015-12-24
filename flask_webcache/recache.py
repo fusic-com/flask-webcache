@@ -1,6 +1,12 @@
 from __future__ import unicode_literals
 from flask import request, current_app
 from werkzeug.http import Headers
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+if os.environ.get('LOG_WEBCACHE'):
+	logger.setLevel(logging.DEBUG)
 
 RECACHE_HEADER = 'X-Webcache-Recache'
 
@@ -46,9 +52,11 @@ def make_process_dispatcher(app_factory=None):
 
 def dispatch_request(app_factory, method, path, query_string, headers):
     app = app_factory() if callable(app_factory) else current_app
+    logger.debug("recache request method = {} # path = {} # query_string = {} ".format(method,path,query_string))
     app.test_client().open(
         method = method,
         path = path,
         query_string = query_string,
         headers = headers,
+		buffered=True
     )
